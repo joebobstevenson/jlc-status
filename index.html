@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JLC Minecraft</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:        #1a0a0f;
+      --petal-deep: #c9536a;
+      --petal-mid:  #e8879a;
+      --petal-soft: #f5c6d0;
+      --petal-pale: #fdf0f2;
+      --bark:       #5c3d2e;
+      --mist:       #f9eef0;
+      --online:     #6dbf8a;
+      --offline:    #c9536a;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--mist);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* ── Falling petals canvas ── */
+    #petal-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    /* ── Branch decoration ── */
+    .branch-wrap {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: -0.5rem;
+    }
+    .branch-svg { width: 260px; opacity: 0.85; }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .title-jp {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 300;
+      font-size: 0.85rem;
+      letter-spacing: 0.25em;
+      color: var(--petal-deep);
+      margin-bottom: 0.4rem;
+    }
+    h1 {
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 600;
+      font-size: clamp(2rem, 5vw, 3rem);
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+    }
+    .subtitle {
+      font-size: 0.78rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      color: var(--bark);
+      margin-top: 0.5rem;
+      text-transform: uppercase;
+    }
+
+    /* ── Status card ── */
+    .card {
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--petal-soft);
+      border-radius: 1.5rem;
+      width: 100%;
+      max-width: 680px;
+      padding: 2rem 2rem 2.2rem;
+      box-shadow: 0 4px 32px rgba(201, 83, 106, 0.08);
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1.6rem;
+      padding-bottom: 1.4rem;
+      border-bottom: 1px solid var(--petal-soft);
+    }
+    .status-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      background: #ccc;
+      flex-shrink: 0;
+      transition: background 0.4s;
+    }
+    .status-dot.online  { background: var(--online);  box-shadow: 0 0 0 3px rgba(109,191,138,0.25); }
+    .status-dot.offline { background: var(--offline); box-shadow: 0 0 0 3px rgba(201,83,106,0.2); }
+
+    .status-text {
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--bark);
+    }
+    .player-count {
+      margin-left: auto;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 0.85rem;
+      color: var(--petal-deep);
+    }
+
+    /* ── Player grid ── */
+    .players-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--bark);
+      margin-bottom: 1rem;
+    }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .player-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--petal-pale);
+      border: 1px solid var(--petal-soft);
+      border-radius: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .player-chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(201,83,106,0.12);
+    }
+    .player-chip img {
+      width: 28px; height: 28px;
+      border-radius: 4px;
+      image-rendering: pixelated;
+    }
+    .player-name {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem 0 0.5rem;
+      color: var(--bark);
+      font-size: 0.85rem;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 300;
+      line-height: 1.9;
+    }
+    .empty-state .kanji { font-size: 1.8rem; color: var(--petal-mid); display: block; margin-bottom: 0.3rem; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 680px;
+    }
+    .ip-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--bark);
+      opacity: 0.7;
+      font-family: monospace;
+    }
+    .refresh-btn {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--petal-deep);
+      background: none;
+      border: 1px solid var(--petal-soft);
+      border-radius: 99px;
+      padding: 0.35rem 0.9rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.15s, color 0.15s;
+    }
+    .refresh-btn:hover { background: var(--petal-soft); }
+    .last-updated {
+      font-size: 0.68rem;
+      color: var(--bark);
+      opacity: 0.55;
+      text-align: center;
+      margin-top: 0.8rem;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    /* ── Loading shimmer ── */
+    .shimmer {
+      background: linear-gradient(90deg, var(--petal-pale) 25%, var(--petal-soft) 50%, var(--petal-pale) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 0.75rem;
+      height: 48px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    @media (max-width: 480px) {
+      .card { padding: 1.4rem 1.2rem 1.6rem; }
+      .player-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #petal-canvas { display: none; }
+      .player-chip { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="petal-canvas"></canvas>
+
+<div class="page">
+
+  <!-- Decorative branch -->
+  <div class="branch-wrap">
+    <svg class="branch-svg" viewBox="0 0 260 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- main branch -->
+      <path d="M0 110 Q60 80 130 55 Q190 35 260 20" stroke="#5c3d2e" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <!-- sub branch 1 -->
+      <path d="M80 75 Q100 50 125 35" stroke="#5c3d2e" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <!-- sub branch 2 -->
+      <path d="M160 45 Q175 25 200 15" stroke="#5c3d2e" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      <!-- petals scattered -->
+      <!-- cluster 1 -->
+      <ellipse cx="125" cy="33" rx="6" ry="4" fill="#e8879a" opacity="0.9" transform="rotate(-20 125 33)"/>
+      <ellipse cx="133" cy="28" rx="5" ry="3.5" fill="#f5c6d0" opacity="0.85" transform="rotate(10 133 28)"/>
+      <ellipse cx="119" cy="26" rx="4.5" ry="3" fill="#c9536a" opacity="0.7" transform="rotate(-35 119 26)"/>
+      <ellipse cx="128" cy="22" rx="5" ry="3.5" fill="#e8879a" opacity="0.8" transform="rotate(5 128 22)"/>
+      <ellipse cx="138" cy="25" rx="4" ry="3" fill="#f5c6d0" opacity="0.75" transform="rotate(25 138 25)"/>
+      <!-- cluster 2 -->
+      <ellipse cx="200" cy="13" rx="5.5" ry="3.5" fill="#e8879a" opacity="0.9" transform="rotate(-10 200 13)"/>
+      <ellipse cx="208" cy="9"  rx="4.5" ry="3"   fill="#f5c6d0" opacity="0.8" transform="rotate(15 208 9)"/>
+      <ellipse cx="194" cy="8"  rx="4"   ry="3"   fill="#c9536a" opacity="0.65" transform="rotate(-30 194 8)"/>
+      <ellipse cx="203" cy="4"  rx="5"   ry="3.5" fill="#e8879a" opacity="0.75" transform="rotate(0 203 4)"/>
+      <!-- cluster 3 (sub-branch tip) -->
+      <ellipse cx="80"  cy="73" rx="4.5" ry="3"   fill="#f5c6d0" opacity="0.8" transform="rotate(-15 80 73)"/>
+      <ellipse cx="88"  cy="68" rx="4"   ry="3"   fill="#e8879a" opacity="0.85" transform="rotate(20 88 68)"/>
+      <ellipse cx="74"  cy="67" rx="3.5" ry="2.5" fill="#c9536a" opacity="0.6" transform="rotate(-40 74 67)"/>
+    </svg>
+  </div>
+
+  <header>
+    <p class="title-jp">桜のサーバー · さくら</p>
+    <h1>JLC Minecraft</h1>
+    <p class="subtitle">Server Status</p>
+  </header>
+
+  <div class="card">
+    <div class="status-bar">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-text" id="status-text">Checking...</span>
+      <span class="player-count" id="player-count"></span>
+    </div>
+
+    <p class="players-label">Now Online</p>
+    <div class="player-grid" id="player-grid">
+      <div class="shimmer"></div>
+      <div class="shimmer"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span class="ip-label">150.136.63.110</span>
+    <button class="refresh-btn" onclick="fetchStatus()">↻ Refresh</button>
+  </footer>
+  <p class="last-updated" id="last-updated"></p>
+
+</div>
+
+<script>
+  /* ── Falling petals ── */
+  const canvas = document.getElementById('petal-canvas');
+  const ctx = canvas.getContext('2d');
+  const COLORS = ['#e8879a','#f5c6d0','#c9536a','#f0aab8','#fddde4'];
+  let petals = [];
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function spawnPetal() {
+    petals.push({
+      x:     Math.random() * canvas.width,
+      y:     -12,
+      r:     4 + Math.random() * 5,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vx:    (Math.random() - 0.5) * 1.2,
+      vy:    0.6 + Math.random() * 0.9,
+      angle: Math.random() * Math.PI * 2,
+      spin:  (Math.random() - 0.5) * 0.04,
+      sway:  Math.random() * 0.02,
+      swayT: Math.random() * 100,
+      alpha: 0.7 + Math.random() * 0.3,
+    });
+  }
+
+  function drawPetal(p) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    // simple ellipse petal
+    ctx.ellipse(0, 0, p.r, p.r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let lastSpawn = 0;
+  function animate(ts) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (ts - lastSpawn > 320) { spawnPetal(); lastSpawn = ts; }
+
+    petals = petals.filter(p => p.y < canvas.height + 20);
+    for (const p of petals) {
+      p.swayT += 0.02;
+      p.x += p.vx + Math.sin(p.swayT) * p.sway * 18;
+      p.y += p.vy;
+      p.angle += p.spin;
+      drawPetal(p);
+    }
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  /* ── Server status ── */
+  const SERVER_IP = '150.136.63.110';
+  const APIS = [
+    `https://api.mcsrvstat.us/3/${SERVER_IP}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(`https://api.mcsrvstat.us/3/${SERVER_IP}`)}`,
+  ];
+
+  async function tryFetch(urls) {
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.json();
+      } catch (_) {}
+    }
+    throw new Error('All endpoints failed');
+  }
+
+  async function fetchStatus() {
+    const dot   = document.getElementById('status-dot');
+    const text  = document.getElementById('status-text');
+    const count = document.getElementById('player-count');
+    const grid  = document.getElementById('player-grid');
+    const ts    = document.getElementById('last-updated');
+
+    // Loading shimmer
+    grid.innerHTML = '<div class="shimmer"></div><div class="shimmer"></div>';
+    dot.className  = 'status-dot';
+    text.textContent = 'Checking…';
+    count.textContent = '';
+
+    try {
+      const data = await tryFetch(APIS);
+
+      if (data.online) {
+        dot.className     = 'status-dot online';
+        text.textContent  = 'Online';
+        const online  = data.players?.online ?? 0;
+        const max     = data.players?.max ?? '?';
+        count.textContent = `${online} / ${max} players`;
+
+        const list = data.players?.list ?? [];
+        if (list.length === 0) {
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+              <span class="kanji">静</span>
+              The server is empty — be the first to join.
+            </div>`;
+        } else {
+          grid.innerHTML = list.map(p => {
+            const name = typeof p === 'string' ? p : (p.name ?? p);
+            return `
+              <div class="player-chip">
+                <img src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/28" alt="${name}" loading="lazy" />
+                <span class="player-name">${name}</span>
+              </div>`;
+          }).join('');
+        }
+      } else {
+        dot.className     = 'status-dot offline';
+        text.textContent  = 'Offline';
+        count.textContent = '';
+        grid.innerHTML    = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <span class="kanji">眠</span>
+            Server is sleeping.<br>Wake it up and play!
+          </div>`;
+      }
+    } catch (e) {
+      dot.className     = 'status-dot offline';
+      text.textContent  = 'Unreachable';
+      grid.innerHTML    = `<div class="empty-state" style="grid-column:1/-1"><span class="kanji">？</span>Could not reach the server.</div>`;
+    }
+
+    const now = new Date();
+    ts.textContent = `Last updated ${now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+  }
+
+  fetchStatus();
+  setInterval(fetchStatus, 60000); // auto-refresh every 60s
+</script>
+</body>
+</html>
