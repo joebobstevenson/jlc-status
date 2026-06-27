@@ -371,19 +371,44 @@
 
   /* ── Server status ── */
   const SERVER_IP = '150.136.63.110';
-  const APIS = [
-    `https://api.mcsrvstat.us/3/${SERVER_IP}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(`https://api.mcsrvstat.us/3/${SERVER_IP}`)}`,
-  ];
 
-  async function tryFetch(urls) {
-    for (const url of urls) {
+  async function tryFetch() {
+    // mcstatus.io is real-time (no caching), mcsrvstat is fallback
+    const endpoints = [
+      { url: `https://api.mcstatus.io/v2/status/java/${SERVER_IP}`, transform: mcstatusTransform },
+      { url: `https://api.mcsrvstat.us/3/${SERVER_IP}`,             transform: mcsrvstatTransform },
+    ];
+    for (const { url, transform } of endpoints) {
       try {
         const res = await fetch(url);
-        if (res.ok) return await res.json();
+        if (res.ok) return transform(await res.json());
       } catch (_) {}
     }
     throw new Error('All endpoints failed');
+  }
+
+  // Normalize mcstatus.io response
+  function mcstatusTransform(d) {
+    return {
+      online: d.online,
+      players: {
+        online: d.players?.online ?? 0,
+        max:    d.players?.max ?? 0,
+        list:   (d.players?.list ?? []).map(p => p.name_clean ?? p.name ?? p),
+      }
+    };
+  }
+
+  // Normalize mcsrvstat response
+  function mcsrvstatTransform(d) {
+    return {
+      online: d.online,
+      players: {
+        online: d.players?.online ?? 0,
+        max:    d.players?.max ?? 0,
+        list:   (d.players?.list ?? []).map(p => typeof p === 'string' ? p : (p.name ?? p)),
+      }
+    };
   }
 
   async function fetchStatus() {
@@ -400,7 +425,7 @@
     count.textContent = '';
 
     try {
-      const data = await tryFetch(APIS);
+      const data = await tryFetch();
 
       if (data.online) {
         dot.className     = 'status-dot online';
@@ -417,14 +442,11 @@
               The server is empty — be the first to join.
             </div>`;
         } else {
-          grid.innerHTML = list.map(p => {
-            const name = typeof p === 'string' ? p : (p.name ?? p);
-            return `
+          grid.innerHTML = list.map(name => `
               <div class="player-chip">
                 <img src="https://mc-heads.net/avatar/${encodeURIComponent(name)}/28" alt="${name}" loading="lazy" />
                 <span class="player-name">${name}</span>
-              </div>`;
-          }).join('');
+              </div>`).join('');
         }
       } else {
         dot.className     = 'status-dot offline';
