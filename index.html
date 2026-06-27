@@ -582,8 +582,8 @@
   setInterval(fetchStatus, 60000); // auto-refresh every 60s
 
   /* ── Playtime Scoreboard ── */
-  const PLAYTIME_API = 'http://150.136.63.110:8080/playtime';
-
+  const PLAYTIME_API = 'https://jlcstatus.duckdns.org/playtime';
+  
   function formatTime(h, m) {
     if (h > 0) return `${h}h ${m}m`;
     return `${m}m`;
