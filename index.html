@@ -358,6 +358,60 @@
       padding: 0.1rem 0.4rem;
       color: var(--petal-deep);
     }
+
+    /* ── Start button ── */
+    .start-btn {
+      width: 100%;
+      max-width: 680px;
+      margin-top: 1.2rem;
+      padding: 1rem;
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--petal-soft);
+      border-radius: 1.5rem;
+      box-shadow: 0 4px 32px rgba(201, 83, 106, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .start-btn-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 0.85rem;
+      color: var(--bark);
+    }
+    .start-btn-label span {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 300;
+      color: var(--petal-mid);
+      letter-spacing: 0.1em;
+      margin-top: 0.2rem;
+    }
+    #start-server-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: white;
+      background: linear-gradient(135deg, var(--petal-deep), var(--petal-mid));
+      border: none;
+      border-radius: 99px;
+      padding: 0.6rem 1.4rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    #start-server-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    #start-server-btn:active { transform: translateY(0); }
+    #start-server-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    #start-msg {
+      font-size: 0.72rem;
+      color: var(--petal-deep);
+      text-align: right;
+      min-height: 1em;
+    }
   </style>
 </head>
 <body>
@@ -427,6 +481,18 @@
       <div class="shimmer" style="margin-bottom:0.6rem"></div>
       <div class="shimmer" style="margin-bottom:0.6rem"></div>
       <div class="shimmer"></div>
+    </div>
+  </div>
+
+  <!-- Start Server -->
+  <div class="start-btn">
+    <div class="start-btn-label">
+      Server offline?
+      <span>起動する · Start it up</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem">
+      <button id="start-server-btn" onclick="startServer()" disabled>▶ Start Server</button>
+      <span id="start-msg"></span>
     </div>
   </div>
 
@@ -540,6 +606,7 @@
       if (data.online) {
         dot.className     = 'status-dot online';
         text.textContent  = 'Online';
+        document.getElementById('start-server-btn').disabled = true;
         const online  = data.players?.online ?? 0;
         const max     = data.players?.max ?? '?';
         count.textContent = `${online} / ${max} players`;
@@ -562,6 +629,7 @@
         dot.className     = 'status-dot offline';
         text.textContent  = 'Offline';
         count.textContent = '';
+        document.getElementById('start-server-btn').disabled = false;
         grid.innerHTML    = `
           <div class="empty-state" style="grid-column:1/-1">
             <span class="kanji">眠</span>
@@ -571,6 +639,7 @@
     } catch (e) {
       dot.className     = 'status-dot offline';
       text.textContent  = 'Unreachable';
+      document.getElementById('start-server-btn').disabled = false;
       grid.innerHTML    = `<div class="empty-state" style="grid-column:1/-1"><span class="kanji">？</span>Could not reach the server.</div>`;
     }
 
@@ -645,6 +714,32 @@
 
   fetchScoreboard();
   setInterval(fetchScoreboard, 60000);
+
+  /* ── Start server ── */
+  async function startServer() {
+    const btn = document.getElementById('start-server-btn');
+    const msg = document.getElementById('start-msg');
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+    msg.textContent = '';
+    try {
+      const res = await fetch(PLAYTIME_API.replace('/playtime', '/start'), { method: 'POST' });
+      const data = await res.json();
+      msg.textContent = data.message;
+      if (data.success) {
+        btn.textContent = '✓ Sent!';
+        // Refresh status after 15 seconds to show it coming online
+        setTimeout(fetchStatus, 15000);
+      } else {
+        btn.textContent = '▶ Start Server';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.textContent = 'Could not reach API.';
+      btn.textContent = '▶ Start Server';
+      btn.disabled = false;
+    }
+  }
 
 </script>
 </body>
