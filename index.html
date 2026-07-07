@@ -412,6 +412,88 @@
       text-align: right;
       min-height: 1em;
     }
+
+    /* ── Time Remaining ── */
+    .remaining-card {
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--petal-soft);
+      border-radius: 1.5rem;
+      width: 100%;
+      max-width: 680px;
+      padding: 2rem 2rem 2.2rem;
+      box-shadow: 0 4px 32px rgba(201, 83, 106, 0.08);
+      margin-top: 1.2rem;
+    }
+    .remaining-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--petal-soft);
+    }
+    .remaining-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .remaining-title-jp {
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      color: var(--petal-deep);
+    }
+    .remaining-row {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.65rem 0.5rem;
+      border-radius: 0.75rem;
+    }
+    .remaining-row + .remaining-row { border-top: 1px solid var(--petal-soft); }
+    .remaining-avatar {
+      width: 32px; height: 32px;
+      border-radius: 5px;
+      image-rendering: pixelated;
+      flex-shrink: 0;
+    }
+    .remaining-info { flex: 1; min-width: 0; }
+    .remaining-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .remaining-bar-wrap {
+      height: 4px;
+      background: var(--petal-soft);
+      border-radius: 99px;
+      margin-top: 0.35rem;
+      overflow: hidden;
+    }
+    .remaining-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--online), #a8dbb8);
+      transition: width 0.6s ease;
+    }
+    .remaining-bar.low   { background: linear-gradient(90deg, #e8a84c, #f5c97a); }
+    .remaining-bar.critical { background: linear-gradient(90deg, var(--petal-deep), var(--petal-mid)); }
+    .remaining-time {
+      font-size: 0.75rem;
+      color: var(--bark);
+      text-align: right;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+      min-width: 5rem;
+    }
+    .remaining-time span {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--petal-mid);
+      letter-spacing: 0.05em;
+    }
   </style>
 </head>
 <body>
@@ -479,6 +561,18 @@
     </div>
     <div id="scoreboard-rows">
       <div class="shimmer" style="margin-bottom:0.6rem"></div>
+      <div class="shimmer" style="margin-bottom:0.6rem"></div>
+      <div class="shimmer"></div>
+    </div>
+  </div>
+
+  <!-- Time Remaining -->
+  <div class="remaining-card">
+    <div class="remaining-header">
+      <span class="remaining-title">Time Remaining</span>
+      <span class="remaining-title-jp">残り時間</span>
+    </div>
+    <div id="remaining-rows">
       <div class="shimmer" style="margin-bottom:0.6rem"></div>
       <div class="shimmer"></div>
     </div>
@@ -714,6 +808,56 @@
 
   fetchScoreboard();
   setInterval(fetchScoreboard, 60000);
+
+  /* ── Time Remaining ── */
+  function formatRemaining(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return 'Less than a minute';
+  }
+
+  async function fetchRemaining() {
+    const el = document.getElementById('remaining-rows');
+    try {
+      const res = await fetch(PLAYTIME_API.replace('/playtime', '/remaining'));
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const players = data.players;
+
+      if (!players || players.length === 0) {
+        el.innerHTML = '<div class="scoreboard-error">No limited players tracked yet.</div>';
+        return;
+      }
+
+      el.innerHTML = players.map(p => {
+        const pct = Math.max(2, Math.round((p.remaining_seconds / p.limit_seconds) * 100));
+        const barClass = pct <= 10 ? 'critical' : pct <= 25 ? 'low' : '';
+        return `
+          <div class="remaining-row">
+            <img class="remaining-avatar"
+                 src="https://mc-heads.net/avatar/${encodeURIComponent(p.name)}/32"
+                 alt="${p.name}" loading="lazy" />
+            <div class="remaining-info">
+              <div class="remaining-name">${p.name}</div>
+              <div class="remaining-bar-wrap">
+                <div class="remaining-bar ${barClass}" style="width:${pct}%"></div>
+              </div>
+            </div>
+            <div class="remaining-time">
+              ${formatRemaining(p.remaining_seconds)}
+              <span>of ${p.limit_seconds / 3600}h limit</span>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = '<div class="scoreboard-error">Could not load time remaining.</div>';
+    }
+  }
+
+  fetchRemaining();
+  setInterval(fetchRemaining, 30000);
 
   /* ── Start server ── */
   async function startServer() {
