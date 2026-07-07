@@ -811,6 +811,7 @@
 
   /* ── Time Remaining ── */
   function formatRemaining(secs) {
+    if (secs <= 0) return 'Time\u2019s up!';
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     if (h > 0) return `${h}h ${m}m`;
